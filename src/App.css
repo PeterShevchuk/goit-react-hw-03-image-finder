@@ -1,16 +1,9 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-h1 {
-  text-align: center;
-}
-h2 {
-  text-transform: uppercase;
-  margin-bottom: 10px;
-}
-input[type="text"] {
-  padding: 10px;
+/*
+ * Стили компонента App
+ */
+.App {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-gap: 16px;
+  padding-bottom: 24px;
 }

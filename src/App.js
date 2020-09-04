@@ -1,86 +1,67 @@
 import React, { Fragment, Component } from "react";
 import "./App.css";
 
-import Section from "./Components/Section/Section";
+import Loader from "react-loader-spinner";
 
-// Task2
-import Phonebook from "./Components/Phonebook/Phonebook";
-import Contacts from "./Components/Contacts/Contacts";
-import Filter from "./Components/Filter/Filter";
+import { withCreadentials, request } from "./Components/helpers/request";
+import Button from "./Components/Button/Button";
+import Searchbar from "./Components/Searchbar/Searchbar";
+import ImageGallery from "./Components/ImageGallery/ImageGallery";
+import Modal from "./Components/Modal/Modal";
 
 class App extends Component {
   state = {
-    contacts: [],
-    filteredContacts: [],
+    imageGallery: [],
+    ImageModal: {},
+    totalPages: 0,
+    totalImages: 0,
+    page: 1,
     filter: "",
+    loader: false,
   };
-  componentWillMount() {
-    const getArrayContacts = localStorage.getItem("PhoneBookContacts");
-    if (!getArrayContacts) {
-      return;
-    }
-    this.setState({ contacts: JSON.parse(getArrayContacts) });
+  componentDidMount(){
+    document.addEventListener("keydown", this.keyUp, false);
   }
-  componentDidUpdate() {
-    localStorage.setItem("PhoneBookContacts", JSON.stringify(this.state.contacts));
+  componentWillUnmount(){
+    document.removeEventListener("keydown", this.keyUp, false);
   }
-  addContact = (contact) => {
-    if (this.state.contacts.find((item) => item.name === contact.name)) {
-      alert(`${contact.name} id already in contacts`);
-      return;
-    }
-    this.setState((prev) => ({ contacts: [contact, ...prev.contacts] }));
+  keyUp = (e) => {
+    if(e.keyCode === 27) {this.closeModal()}
+  }
+  getImages = async ({ filter }) => {
+    if (filter === this.state.filter) {return;}
+    const result = await request("get", withCreadentials(filter, 1));
+    this.setState({ imageGallery: result.hits, totalPages: result.totalHits, totalImages: result.total, page: 1, filter: filter});
   };
-  inputHeandlerFilter = ({ target }) => {
-    if (this.state.contacts <= 0) {
-      alert("Телефонна книга пуста");
-      return;
-    }
-    this.setState({ filter: target.value });
-    const newArray = this.state.contacts.filter((contact) => contact.name.toUpperCase().includes(target.value.toUpperCase()) || contact.number.includes(target.value));
-    if (newArray.length <= 0) {
-      alert(newArray.length);
-      return;
-    }
-    this.setState({ filteredContacts: newArray });
+  loadMore = async () => {
+    let page = (this.state.page += 1);
+    const result = await request("get", withCreadentials(this.state.filter, page));
+    await this.setState((prev) => ({ imageGallery: [...prev.imageGallery, ...result.hits], page: page}));
+    this.scrollPage();
   };
-  removeContact = (id) => {
-    this.setState((prev) => ({ contacts: prev.contacts.filter((contact) => contact.id !== id) }));
-    if (this.state.filteredContacts.length > 0) {
-      this.setState((prev) => ({ filteredContacts: prev.filteredContacts.filter((contact) => contact.id !== id) }));
-    } else {
-      this.setState({ filter: "" });
-    }
-  };
-  resetInput = () => {
-    this.setState({ filter: "" });
-    this.setState({ filteredContacts: [] });
-  };
-  sort = (contacts) => {
-    return contacts.sort(function (a, b) {
-      let nameA = a.name.toUpperCase();
-      let nameB = b.name.toUpperCase();
-      if (nameA < nameB) {
-        return -1;
-      }
-      if (nameA > nameB) {
-        return 1;
-      }
-      return 0;
+  showModal = (id) => {
+    this.setState((prev) => ({ ImageModal: prev.imageGallery.find(image=> image.id === id)}));
+  }
+  closeModal = () => {
+    this.setState({ ImageModal: {}});
+  }
+  scrollPage = () => {
+    window.scrollTo(0, 0);
+    window.scrollTo({
+        top: document.documentElement.offsetHeight,
+        behavior: "smooth",
     });
-  };
+
+  }
   render() {
-    const { contacts, filteredContacts, filter } = this.state;
+    const { totalPages, imageGallery, loader, ImageModal } = this.state;
     return (
       <Fragment>
-        <Section title="Phonebook">
-          <Phonebook addContact={this.addContact} />
-        </Section>
-        <br />
-        <Section title="Contacts">
-          <Filter inputHeandlerFilter={this.inputHeandlerFilter} filter={filter} resetInput={this.resetInput} />
-          <Contacts contacts={this.sort(filteredContacts.length > 0 ? filteredContacts : contacts)} removeContact={this.removeContact} />
-        </Section>
+        <Searchbar getImages={this.getImages} />
+        {Object.keys(ImageModal).length? <Modal ImageModal={ImageModal} closeModal={this.closeModal}/> : null}
+        {imageGallery && <ImageGallery imageGallery={imageGallery} showModal={this.showModal}/>}
+        {loader && <span className="loader"><Loader type="Audio" color="#00BFFF" height={300} width={300}/></span>}
+        {imageGallery.length && imageGallery.length !== totalPages ? <Button loadMore={this.loadMore} /> : null}
       </Fragment>
     );
   }
